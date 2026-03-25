@@ -1,8 +1,19 @@
 import { Button } from "@/components/ui/button";
 import { Check, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
+import { useState } from "react";
 import type { PricingPlan } from "../backend";
 import { useGetPricingPlans } from "../hooks/useQueries";
+
+type VehicleFilter = "All" | "Cycle" | "E-Scooter" | "E-Auto" | "E-Car";
+
+const VEHICLE_FILTERS: VehicleFilter[] = [
+  "All",
+  "Cycle",
+  "E-Scooter",
+  "E-Auto",
+  "E-Car",
+];
 
 const FALLBACK_PLANS: PricingPlan[] = [
   {
@@ -40,6 +51,122 @@ const FALLBACK_PLANS: PricingPlan[] = [
   },
 ];
 
+const ESCOOTER_PLANS: PricingPlan[] = [
+  {
+    name: "Scoot Start",
+    price: BigInt(39),
+    features: [
+      "Up to 5 rides/day",
+      "E-Scooter rides only",
+      "Real-time tracking",
+      "In-app support",
+    ],
+  },
+  {
+    name: "Scoot Daily",
+    price: BigInt(129),
+    features: [
+      "Unlimited rides/day",
+      "Priority scooter matching",
+      "Helmet assurance",
+      "24/7 support",
+      "Ride history",
+    ],
+  },
+  {
+    name: "Scoot Monthly",
+    price: BigInt(799),
+    features: [
+      "Unlimited rides/month",
+      "Premium scooters only",
+      "Schedule in advance",
+      "Family sharing (2 accounts)",
+      "Zero cancellation fees",
+      "Speed upgrade option",
+    ],
+  },
+];
+
+const EAUTO_PLANS: PricingPlan[] = [
+  {
+    name: "Auto Quick",
+    price: BigInt(59),
+    features: [
+      "Up to 4 rides/day",
+      "3-seater e-auto",
+      "Real-time tracking",
+      "In-app support",
+    ],
+  },
+  {
+    name: "Auto Daily",
+    price: BigInt(179),
+    features: [
+      "Unlimited rides/day",
+      "Priority auto matching",
+      "AC e-auto available",
+      "24/7 support",
+      "Ride history",
+    ],
+  },
+  {
+    name: "Auto Monthly",
+    price: BigInt(1199),
+    features: [
+      "Unlimited rides/month",
+      "Premium auto pool",
+      "Schedule in advance",
+      "Family sharing (3 accounts)",
+      "Zero cancellation fees",
+      "Corporate billing",
+    ],
+  },
+];
+
+const ECAR_PLANS: PricingPlan[] = [
+  {
+    name: "Quick Ride",
+    price: BigInt(79),
+    features: [
+      "Up to 3 rides/day",
+      "Compact e-car",
+      "Real-time tracking",
+      "In-app support",
+    ],
+  },
+  {
+    name: "City Pass",
+    price: BigInt(199),
+    features: [
+      "Unlimited rides/day",
+      "Priority car matching",
+      "Premium e-cars",
+      "24/7 concierge support",
+      "Ride history & receipts",
+    ],
+  },
+  {
+    name: "Monthly Elite",
+    price: BigInt(1499),
+    features: [
+      "Unlimited rides/month",
+      "Luxury e-cars only",
+      "Schedule in advance",
+      "Family sharing (4 accounts)",
+      "Zero cancellation fees",
+      "Corporate billing & GST",
+    ],
+  },
+];
+
+const PLANS_BY_VEHICLE: Record<VehicleFilter, PricingPlan[]> = {
+  All: FALLBACK_PLANS,
+  Cycle: FALLBACK_PLANS,
+  "E-Scooter": ESCOOTER_PLANS,
+  "E-Auto": EAUTO_PLANS,
+  "E-Car": ECAR_PLANS,
+};
+
 const PLAN_BADGES = ["Starter", "Most Popular", "Best Value"];
 const PLAN_HIGHLIGHTED = [false, true, false];
 
@@ -49,7 +176,13 @@ interface PricingSectionProps {
 
 export default function PricingSection({ onGetStarted }: PricingSectionProps) {
   const { data: plans, isLoading } = useGetPricingPlans();
-  const displayPlans = plans && plans.length > 0 ? plans : FALLBACK_PLANS;
+  const [vehicleFilter, setVehicleFilter] = useState<VehicleFilter>("All");
+
+  const basePlans =
+    plans && plans.length > 0 && vehicleFilter === "All"
+      ? plans
+      : PLANS_BY_VEHICLE[vehicleFilter];
+  const displayPlans = basePlans;
 
   return (
     <section id="pricing" className="py-20 bg-white">
@@ -58,7 +191,7 @@ export default function PricingSection({ onGetStarted }: PricingSectionProps) {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center mb-12"
+          className="text-center mb-8"
         >
           <span className="inline-block text-xs font-bold uppercase tracking-widest text-primary bg-secondary px-3 py-1 rounded-full mb-3">
             Affordable &amp; Green
@@ -71,6 +204,28 @@ export default function PricingSection({ onGetStarted }: PricingSectionProps) {
             green rides.
           </p>
         </motion.div>
+
+        {/* Vehicle Filter Pills */}
+        <div
+          className="flex justify-center gap-2 mb-10 flex-wrap"
+          data-ocid="pricing.vehicle.select"
+        >
+          {VEHICLE_FILTERS.map((filter) => (
+            <button
+              key={filter}
+              type="button"
+              onClick={() => setVehicleFilter(filter)}
+              data-ocid={`pricing.vehicle.${filter.toLowerCase().replace("-", "")}.toggle`}
+              className={`px-4 py-1.5 rounded-full text-sm font-semibold border transition-all ${
+                vehicleFilter === filter
+                  ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                  : "bg-secondary text-foreground border-border hover:border-primary/40"
+              }`}
+            >
+              {filter}
+            </button>
+          ))}
+        </div>
 
         {isLoading ? (
           <div
@@ -85,7 +240,7 @@ export default function PricingSection({ onGetStarted }: PricingSectionProps) {
               const highlighted = PLAN_HIGHLIGHTED[i % 3];
               return (
                 <motion.div
-                  key={plan.name}
+                  key={`${vehicleFilter}-${plan.name}`}
                   initial={{ opacity: 0, y: 24 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}

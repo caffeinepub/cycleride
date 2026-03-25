@@ -17,6 +17,22 @@ interface HeroSectionProps {
   onRideBooked?: (pickup: string, dropoff: string) => void;
 }
 
+type VehicleType = "Cycle" | "E-Scooter" | "E-Auto" | "E-Car";
+
+const VEHICLE_OPTIONS: { type: VehicleType; emoji: string }[] = [
+  { type: "Cycle", emoji: "🚴" },
+  { type: "E-Scooter", emoji: "⚡" },
+  { type: "E-Auto", emoji: "🛺" },
+  { type: "E-Car", emoji: "🚗" },
+];
+
+function getRequestLabel(vehicle: VehicleType): string {
+  if (vehicle === "E-Auto" || vehicle === "E-Car") {
+    return `REQUEST AN ${vehicle}`;
+  }
+  return `REQUEST A ${vehicle}`;
+}
+
 export default function HeroSection({
   onAuthRequired,
   isAuthenticated,
@@ -27,6 +43,7 @@ export default function HeroSection({
 }: HeroSectionProps) {
   const [pickup, setPickup] = useState(prefillPickup || "");
   const [dropoff, setDropoff] = useState(prefillDropoff || "");
+  const [vehicleType, setVehicleType] = useState<VehicleType>("Cycle");
   const bookRide = useBookRide();
 
   const handleBook = async () => {
@@ -45,9 +62,12 @@ export default function HeroSection({
         rideTime: BigInt(Date.now()) * BigInt(1_000_000),
       });
       if (result) {
-        toast.success("🚴 Ride booked! A cyclist is on the way.", {
-          description: `From ${pickup} to ${dropoff}`,
-        });
+        toast.success(
+          `${VEHICLE_OPTIONS.find((v) => v.type === vehicleType)?.emoji} Ride booked! A ${vehicleType} is on the way.`,
+          {
+            description: `From ${pickup} to ${dropoff}`,
+          },
+        );
         const bookedPickup = pickup;
         const bookedDropoff = dropoff;
         setPickup("");
@@ -113,6 +133,30 @@ export default function HeroSection({
               <h2 className="font-heading font-bold text-lg text-foreground mb-4">
                 Book Your Ride
               </h2>
+
+              {/* Vehicle Type Selector */}
+              <div
+                className="flex gap-2 mb-4"
+                data-ocid="booking.vehicle.select"
+              >
+                {VEHICLE_OPTIONS.map((v) => (
+                  <button
+                    key={v.type}
+                    type="button"
+                    onClick={() => setVehicleType(v.type)}
+                    data-ocid={`booking.vehicle.${v.type.toLowerCase().replace("-", "")}.toggle`}
+                    className={`flex-1 flex flex-col items-center gap-1 py-2 px-1 rounded-xl text-xs font-semibold border transition-all ${
+                      vehicleType === v.type
+                        ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                        : "bg-secondary text-foreground border-border hover:border-primary/40"
+                    }`}
+                  >
+                    <span className="text-lg">{v.emoji}</span>
+                    <span>{v.type}</span>
+                  </button>
+                ))}
+              </div>
+
               <div className="space-y-3">
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
@@ -151,7 +195,7 @@ export default function HeroSection({
                       Booking...
                     </>
                   ) : (
-                    "REQUEST A CYCLE"
+                    getRequestLabel(vehicleType)
                   )}
                 </Button>
               </div>

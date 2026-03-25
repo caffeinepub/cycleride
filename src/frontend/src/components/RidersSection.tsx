@@ -1,12 +1,18 @@
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, MapPin, Star } from "lucide-react";
 import { motion } from "motion/react";
+import { useState } from "react";
 import type { RiderProfile } from "../backend";
 import { useGetAllRiders } from "../hooks/useQueries";
 import { LiveTrackSVG } from "./MapSVG";
 
-const FALLBACK_RIDERS: RiderProfile[] = [
+type VehicleTab = "Cycle" | "E-Scooter" | "E-Auto" | "E-Car";
+
+const VEHICLE_TABS: VehicleTab[] = ["Cycle", "E-Scooter", "E-Auto", "E-Car"];
+
+const CYCLE_RIDERS: RiderProfile[] = [
   {
     name: "Arjun Sharma",
     rating: 4.9,
@@ -41,6 +47,118 @@ const FALLBACK_RIDERS: RiderProfile[] = [
   },
 ];
 
+const ESCOOTER_RIDERS: RiderProfile[] = [
+  {
+    name: "Karan Mehta",
+    rating: 4.9,
+    distance: 0.5,
+    isAvailable: true,
+    photoUrl: "",
+    coordinates: undefined,
+  },
+  {
+    name: "Divya Nair",
+    rating: 4.8,
+    distance: 0.9,
+    isAvailable: true,
+    photoUrl: "",
+    coordinates: undefined,
+  },
+  {
+    name: "Saurabh Joshi",
+    rating: 4.7,
+    distance: 1.2,
+    isAvailable: false,
+    photoUrl: "",
+    coordinates: undefined,
+  },
+  {
+    name: "Anjali Rao",
+    rating: 4.7,
+    distance: 1.6,
+    isAvailable: true,
+    photoUrl: "",
+    coordinates: undefined,
+  },
+];
+
+const EAUTO_RIDERS: RiderProfile[] = [
+  {
+    name: "Ravi Kumar",
+    rating: 4.8,
+    distance: 0.4,
+    isAvailable: true,
+    photoUrl: "",
+    coordinates: undefined,
+  },
+  {
+    name: "Sunita Devi",
+    rating: 4.9,
+    distance: 0.8,
+    isAvailable: true,
+    photoUrl: "",
+    coordinates: undefined,
+  },
+  {
+    name: "Manoj Tiwari",
+    rating: 4.7,
+    distance: 1.0,
+    isAvailable: false,
+    photoUrl: "",
+    coordinates: undefined,
+  },
+  {
+    name: "Pooja Gupta",
+    rating: 4.8,
+    distance: 1.5,
+    isAvailable: true,
+    photoUrl: "",
+    coordinates: undefined,
+  },
+];
+
+const ECAR_RIDERS: RiderProfile[] = [
+  {
+    name: "Vikram Singh",
+    rating: 4.9,
+    distance: 0.6,
+    isAvailable: true,
+    photoUrl: "",
+    coordinates: undefined,
+  },
+  {
+    name: "Meera Iyer",
+    rating: 4.8,
+    distance: 1.0,
+    isAvailable: true,
+    photoUrl: "",
+    coordinates: undefined,
+  },
+  {
+    name: "Aditya Kulkarni",
+    rating: 4.9,
+    distance: 1.3,
+    isAvailable: true,
+    photoUrl: "",
+    coordinates: undefined,
+  },
+  {
+    name: "Sneha Reddy",
+    rating: 4.7,
+    distance: 1.8,
+    isAvailable: false,
+    photoUrl: "",
+    coordinates: undefined,
+  },
+];
+
+const RIDERS_BY_VEHICLE: Record<VehicleTab, RiderProfile[]> = {
+  Cycle: CYCLE_RIDERS,
+  "E-Scooter": ESCOOTER_RIDERS,
+  "E-Auto": EAUTO_RIDERS,
+  "E-Car": ECAR_RIDERS,
+};
+
 const AVATAR_COLORS = [
   "from-green-500 to-emerald-700",
   "from-teal-500 to-cyan-700",
@@ -50,14 +168,23 @@ const AVATAR_COLORS = [
 
 const STAR_INDICES = [0, 1, 2, 3, 4];
 
+const VEHICLE_BADGE_COLORS: Record<VehicleTab, string> = {
+  Cycle: "bg-green-100 text-green-700",
+  "E-Scooter": "bg-blue-100 text-blue-700",
+  "E-Auto": "bg-amber-100 text-amber-700",
+  "E-Car": "bg-purple-100 text-purple-700",
+};
+
 function RiderCard({
   rider,
   index,
   onBook,
+  vehicleTab,
 }: {
   rider: RiderProfile;
   index: number;
   onBook: (rider: RiderProfile) => void;
+  vehicleTab: VehicleTab;
 }) {
   const initials = rider.name
     .split(" ")
@@ -109,9 +236,16 @@ function RiderCard({
           {rider.isAvailable ? "Available" : "Busy"}
         </span>
       </div>
-      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <MapPin className="w-3.5 h-3.5 text-primary" />
-        <span>{rider.distance.toFixed(1)} km away</span>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <MapPin className="w-3.5 h-3.5 text-primary" />
+          <span>{rider.distance.toFixed(1)} km away</span>
+        </div>
+        <span
+          className={`text-xs font-semibold px-2 py-0.5 rounded-full ${VEHICLE_BADGE_COLORS[vehicleTab]}`}
+        >
+          {vehicleTab}
+        </span>
       </div>
       <Button
         size="sm"
@@ -132,8 +266,13 @@ interface RidersSectionProps {
 
 export default function RidersSection({ onBookRider }: RidersSectionProps) {
   const { data: riders, isLoading } = useGetAllRiders();
+  const [vehicleTab, setVehicleTab] = useState<VehicleTab>("Cycle");
+
+  const fallbackRiders = RIDERS_BY_VEHICLE[vehicleTab];
   const displayRiders = (
-    riders && riders.length > 0 ? riders : FALLBACK_RIDERS
+    vehicleTab === "Cycle" && riders && riders.length > 0
+      ? riders
+      : fallbackRiders
   ).slice(0, 4);
 
   return (
@@ -146,15 +285,37 @@ export default function RidersSection({ onBookRider }: RidersSectionProps) {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="mb-6"
+              className="mb-4"
             >
               <h2 className="font-heading font-bold text-3xl text-foreground mb-2">
                 Available Riders Nearby
               </h2>
               <p className="text-muted-foreground text-sm">
-                Certified cyclists ready to ride with you right now.
+                Certified riders ready to roll with you right now.
               </p>
             </motion.div>
+
+            {/* Vehicle Category Tabs */}
+            <div
+              className="flex gap-2 mb-5 flex-wrap"
+              data-ocid="riders.vehicle.tab"
+            >
+              {VEHICLE_TABS.map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setVehicleTab(tab)}
+                  data-ocid={`riders.vehicle.${tab.toLowerCase().replace("-", "")}.tab`}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
+                    vehicleTab === tab
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-secondary text-foreground border-border hover:border-primary/40"
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
 
             {isLoading ? (
               <div
@@ -170,10 +331,11 @@ export default function RidersSection({ onBookRider }: RidersSectionProps) {
               >
                 {displayRiders.map((rider, i) => (
                   <RiderCard
-                    key={rider.name}
+                    key={`${vehicleTab}-${rider.name}`}
                     rider={rider}
                     index={i}
                     onBook={onBookRider}
+                    vehicleTab={vehicleTab}
                   />
                 ))}
               </div>

@@ -1,61 +1,17 @@
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
 import { useEffect, useRef } from "react";
 import { useGeolocation } from "../hooks/useGeolocation";
 
-const LEAFLET_CDN = "https://unpkg.com/leaflet@1.9.4/dist/images";
+const LEAFLET_CDN = "https://unpkg.com/leaflet@1.9.4/dist";
 
-const customerIcon = L.divIcon({
-  className: "",
-  html: `<div style="
-    width:36px;height:36px;border-radius:50%;
-    background:oklch(0.55 0.2 250);border:3px solid white;
-    box-shadow:0 0 0 4px rgba(59,130,246,0.35);
-    display:flex;align-items:center;justify-content:center;
-    position:relative;
-  ">
-    <div style="
-      position:absolute;inset:-6px;border-radius:50%;
-      border:2px solid rgba(59,130,246,0.5);
-      animation:pulse-ring 1.5s ease-out infinite;
-    "></div>
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><title>You</title>
-      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-    </svg>
-  </div>`,
-  iconSize: [36, 36],
-  iconAnchor: [18, 18],
-  popupAnchor: [0, -20],
-});
+declare global {
+  interface Window {
+    L: any;
+  }
+}
 
-const riderIcon = L.divIcon({
-  className: "",
-  html: `<div style="
-    width:40px;height:40px;border-radius:50%;
-    background:oklch(0.55 0.2 145);border:3px solid white;
-    box-shadow:0 2px 8px rgba(0,0,0,0.25);
-    display:flex;align-items:center;justify-content:center;
-  ">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><title>Rider</title>
-      <path d="M15.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM5 12c-2.8 0-5 2.2-5 5s2.2 5 5 5 5-2.2 5-5-2.2-5-5-5zm0 8.5c-1.9 0-3.5-1.6-3.5-3.5S3.1 13.5 5 13.5s3.5 1.6 3.5 3.5S6.9 20.5 5 20.5zm5.8-10l2.4-2.4.8.8c1.3 1.3 3 2.1 5.1 2.1V11c-1.5 0-2.7-.6-3.6-1.5l-1.9-1.9c-.5-.4-1-.6-1.6-.6s-1.1.2-1.4.6L7.8 10.4c-.4.4-.6.9-.6 1.4 0 .6.2 1.1.6 1.4L11 16v5h2v-6.2l-2.2-2.8zM19 12c-2.8 0-5 2.2-5 5s2.2 5 5 5 5-2.2 5-5-2.2-5-5-5zm0 8.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/>
-    </svg>
-  </div>`,
-  iconSize: [40, 40],
-  iconAnchor: [20, 20],
-  popupAnchor: [0, -22],
-});
-
-// Fix default icon — use Object.assign to avoid noDelete lint rule
-const iconProto = L.Icon.Default.prototype as unknown as Record<
-  string,
-  unknown
->;
-iconProto._getIconUrl = undefined;
-L.Icon.Default.mergeOptions({
-  iconUrl: `${LEAFLET_CDN}/marker-icon.png`,
-  iconRetinaUrl: `${LEAFLET_CDN}/marker-icon-2x.png`,
-  shadowUrl: `${LEAFLET_CDN}/marker-shadow.png`,
-});
+function getL(): any {
+  return window.L;
+}
 
 function offsetCoords(
   lat: number,
@@ -66,6 +22,23 @@ function offsetCoords(
   return { lat: lat + deltaLat, lng: lng + deltaLng };
 }
 
+async function loadLeaflet(): Promise<void> {
+  if (window.L) return;
+  // Load CSS
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = `${LEAFLET_CDN}/leaflet.css`;
+  document.head.appendChild(link);
+  // Load JS
+  await new Promise<void>((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = `${LEAFLET_CDN}/leaflet.js`;
+    script.onload = () => resolve();
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
+
 interface LiveTrackingMapProps {
   etaSeconds: number;
 }
@@ -73,53 +46,84 @@ interface LiveTrackingMapProps {
 export default function LiveTrackingMap({ etaSeconds }: LiveTrackingMapProps) {
   const { lat, lng, error, loading } = useGeolocation();
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const customerMarkerRef = useRef<L.Marker | null>(null);
-  const riderMarkerRef = useRef<L.Marker | null>(null);
+  const mapRef = useRef<any>(null);
+  const customerMarkerRef = useRef<any>(null);
+  const riderMarkerRef = useRef<any>(null);
   const riderPosRef = useRef<{ lat: number; lng: number } | null>(null);
   const animFrameRef = useRef<number | null>(null);
 
   // Initialize map
   useEffect(() => {
-    if (!mapContainerRef.current || mapRef.current) return;
     if (loading || error || lat === null || lng === null) return;
 
-    const map = L.map(mapContainerRef.current, {
-      center: [lat, lng],
-      zoom: 15,
-      zoomControl: true,
+    let cancelled = false;
+    loadLeaflet().then(() => {
+      if (cancelled || !mapContainerRef.current || mapRef.current) return;
+      const L = getL();
+
+      // Fix default icon
+      const iconProto = L.Icon.Default.prototype as Record<string, unknown>;
+      iconProto._getIconUrl = undefined;
+      L.Icon.Default.mergeOptions({
+        iconUrl: `${LEAFLET_CDN}/images/marker-icon.png`,
+        iconRetinaUrl: `${LEAFLET_CDN}/images/marker-icon-2x.png`,
+        shadowUrl: `${LEAFLET_CDN}/images/marker-shadow.png`,
+      });
+
+      const customerIcon = L.divIcon({
+        className: "",
+        html: `<div style="width:36px;height:36px;border-radius:50%;background:oklch(0.55 0.2 250);border:3px solid white;box-shadow:0 0 0 4px rgba(59,130,246,0.35);display:flex;align-items:center;justify-content:center;position:relative;"><div style="position:absolute;inset:-6px;border-radius:50%;border:2px solid rgba(59,130,246,0.5);animation:pulse-ring 1.5s ease-out infinite;"></div><svg width="16" height="16" viewBox="0 0 24 24" fill="white"><title>You</title><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg></div>`,
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
+        popupAnchor: [0, -20],
+      });
+
+      const riderIcon = L.divIcon({
+        className: "",
+        html: `<div style="width:40px;height:40px;border-radius:50%;background:oklch(0.55 0.2 145);border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="white"><title>Rider</title><path d="M15.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM5 12c-2.8 0-5 2.2-5 5s2.2 5 5 5 5-2.2 5-5-2.2-5-5-5zm0 8.5c-1.9 0-3.5-1.6-3.5-3.5S3.1 13.5 5 13.5s3.5 1.6 3.5 3.5S6.9 20.5 5 20.5zm5.8-10l2.4-2.4.8.8c1.3 1.3 3 2.1 5.1 2.1V11c-1.5 0-2.7-.6-3.6-1.5l-1.9-1.9c-.5-.4-1-.6-1.6-.6s-1.1.2-1.4.6L7.8 10.4c-.4.4-.6.9-.6 1.4 0 .6.2 1.1.6 1.4L11 16v5h2v-6.2l-2.2-2.8zM19 12c-2.8 0-5 2.2-5 5s2.2 5 5 5 5-2.2 5-5-2.2-5-5-5zm0 8.5c-1.9 0-3.5-1.6-3.5-3.5s1.6-3.5 3.5-3.5 3.5 1.6 3.5 3.5-1.6 3.5-3.5 3.5z"/></svg></div>`,
+        iconSize: [40, 40],
+        iconAnchor: [20, 20],
+        popupAnchor: [0, -22],
+      });
+
+      const map = L.map(mapContainerRef.current, {
+        center: [lat, lng],
+        zoom: 15,
+        zoomControl: true,
+      });
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: 19,
+      }).addTo(map);
+
+      const custMarker = L.marker([lat, lng], { icon: customerIcon })
+        .addTo(map)
+        .bindPopup("<strong>You</strong>");
+      customerMarkerRef.current = custMarker;
+
+      const startOffset = offsetCoords(lat, lng, 0.0052, 0.0052);
+      riderPosRef.current = startOffset;
+      const riderMarker = L.marker([startOffset.lat, startOffset.lng], {
+        icon: riderIcon,
+      })
+        .addTo(map)
+        .bindPopup("<strong>Your Rider</strong><br/>Arjun • Mountain Bike");
+      riderMarkerRef.current = riderMarker;
+
+      mapRef.current = map;
     });
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      maxZoom: 19,
-    }).addTo(map);
-
-    // Customer marker
-    const custMarker = L.marker([lat, lng], { icon: customerIcon })
-      .addTo(map)
-      .bindPopup("<strong>You</strong>");
-    customerMarkerRef.current = custMarker;
-
-    // Start rider ~800m away
-    const startOffset = offsetCoords(lat, lng, 0.0052, 0.0052);
-    riderPosRef.current = startOffset;
-    const riderMarker = L.marker([startOffset.lat, startOffset.lng], {
-      icon: riderIcon,
-    })
-      .addTo(map)
-      .bindPopup("<strong>Your Rider</strong><br/>Arjun • Mountain Bike");
-    riderMarkerRef.current = riderMarker;
-
-    mapRef.current = map;
-
     return () => {
+      cancelled = true;
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-      map.remove();
-      mapRef.current = null;
-      customerMarkerRef.current = null;
-      riderMarkerRef.current = null;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+        customerMarkerRef.current = null;
+        riderMarkerRef.current = null;
+      }
     };
   }, [lat, lng, loading, error]);
 
@@ -139,7 +143,6 @@ export default function LiveTrackingMap({ etaSeconds }: LiveTrackingMapProps) {
       const rLng = startPos.lng + (lng - startPos.lng) * t;
       riderPosRef.current = { lat: rLat, lng: rLng };
       riderMarkerRef.current?.setLatLng([rLat, rLng]);
-
       if (t < 1) {
         animFrameRef.current = requestAnimationFrame(animate);
       }
